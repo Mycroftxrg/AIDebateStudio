@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.1 - 2026-06-01
+
+- 将应用版本更新为 1.1，并同步 Windows 安装脚本输出名称。
+- 调整 Release 构建配置：Windows 使用 win-x64 publish 输出，Android Release 默认生成 arm64 APK。
+- 增加启动阶段诊断日志，捕获 MAUI/WinUI 初始化异常并写入本地日志。
+- 修复部分动态创建控件读取 Caption 样式时的资源作用域问题。
+
 ## 1.0.0 - 2026-06-01
 
 - 建立 AI 辩论工作室首个版本，支持 Windows 和 Android。

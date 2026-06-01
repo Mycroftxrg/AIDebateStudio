@@ -21,6 +21,7 @@ public partial class MainPage : ContentPage
 	private bool _isBusy;
 	private bool _isLoading;
 	private CancellationTokenSource? _turnCts;
+	private Style CaptionStyle => (Style)Application.Current!.Resources["Caption"];
 
 	public MainPage()
 	{
@@ -550,7 +551,7 @@ public partial class MainPage : ContentPage
 					new Label
 					{
 						Text = $"{message.CreatedAt:HH:mm} {message.Phase}",
-						Style = (Style)Resources["Caption"]
+						Style = CaptionStyle
 					}
 				}
 			}
@@ -582,7 +583,7 @@ public partial class MainPage : ContentPage
 				Children =
 				{
 					new Label { Text = title, FontFamily = "OpenSansSemibold", FontSize = 16 },
-					new Label { Text = body, Style = (Style)Resources["Caption"] }
+					new Label { Text = body, Style = CaptionStyle }
 				}
 			}
 		};
@@ -594,7 +595,7 @@ public partial class MainPage : ContentPage
 		AttachmentSummaryLabel.Text = _attachments.Count == 0 ? "暂无资料" : $"已加入 {_attachments.Count} 个资料";
 		foreach (var item in _attachments.TakeLast(5))
 		{
-			AttachmentStack.Children.Add(new Label { Text = $"{item.Kind} · {item.FileName}", Style = (Style)Resources["Caption"] });
+			AttachmentStack.Children.Add(new Label { Text = $"{item.Kind} · {item.FileName}", Style = CaptionStyle });
 		}
 	}
 

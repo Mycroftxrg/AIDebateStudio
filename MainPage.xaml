@@ -19,7 +19,7 @@
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="AI 辩论工作室" Style="{StaticResource TitleText}" />
-                            <Label x:Name="VersionLabel" Text="版本 1.0.0 · Windows / Android" Style="{StaticResource Caption}" />
+                            <Label x:Name="VersionLabel" Text="版本 1.1 · Windows / Android" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
                         <Border Grid.Column="1" Padding="10,6" BackgroundColor="{AppThemeBinding Light={StaticResource ChipBg}, Dark={StaticResource ChipBgDark}}" StrokeThickness="0">
                             <Label Text="中文主页" FontFamily="OpenSansSemibold" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ChipText}, Dark={StaticResource ChipTextDark}}" />
