@@ -5,6 +5,7 @@ public sealed class DebaterConfig
 	public string Name { get; set; } = string.Empty;
 	public string Position { get; set; } = string.Empty;
 	public string Persona { get; set; } = string.Empty;
+	public DebateSide Side { get; set; }
 	public string PresetId { get; set; } = "openai";
 	public AiProviderKind ProviderKind { get; set; } = AiProviderKind.OpenAiCompatible;
 	public string BaseUrl { get; set; } = string.Empty;

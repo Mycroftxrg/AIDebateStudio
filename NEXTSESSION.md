@@ -4,10 +4,20 @@
 
 - 仓库：`C:\Users\ASUS\Desktop\AIDebateStudio`
 - 远端：`https://github.com/Mycroftxrg/AIDebateStudio.git`
-- 当前发布 tag：`v1.1.0`
+- 当前发布 tag：`v1.2.0`
 - 当前主分支：`main`
 - 目标平台：Windows、Android
 - 技术栈：.NET 10、.NET MAUI、OpenAI-compatible/Anthropic/Gemini REST API、OpenXML、PdfPig
+
+## 1.2.0 已完成
+
+- 将 API 配置重构为 AI 池：先添加多个 API/模型，再统一勾选正反方站位。
+- 新增 `DebateSide` 阵营模型，AI 显示名会带 `（正方）`、`（反方）`、`（未站位）`。
+- 正方、反方分别拥有独立前置提示词，并持久化保存。
+- 新增 DeepSeek 生成按钮，根据当前辩题生成简短明确的正反方战队提示词。
+- 辩论调度只使用已站位 AI，按正方/反方交错发言。
+- system prompt 增加同队协作要求：承接队友论点、补强薄弱处、避免重复，并可分工推进。
+- 旧版保存的“正方/反方”立场文本会自动迁移到新阵营字段。
 
 ## 1.1.0 已完成
 
@@ -23,6 +33,12 @@
 - Windows 安装包：`artifacts\windows\AIDebateStudio-1.1-windows-x64-setup.exe`
 - Android APK：`artifacts\android\AIDebateStudio-1.1-android-arm64-signed.apk`
 - GitHub Release 正文来源：`RELEASE_NOTES_v1.1.0.md`
+
+## 1.2.0 发布资产
+
+- Windows 安装包：`artifacts\windows\AIDebateStudio-1.2-windows-x64-setup.exe`
+- Android APK：`artifacts\android\AIDebateStudio-1.2-android-arm64-signed.apk`
+- GitHub Release 正文来源：`RELEASE_NOTES_v1.2.0.md`
 
 ## 重要代码入口
 
@@ -54,11 +70,12 @@ dotnet publish .\AIDebateStudio.csproj -f net10.0-android -c Release
 ## 架构速记
 
 - `MainPage` 维护本地状态：辩手配置、消息、资料、插话队列和压缩记忆，使用 MAUI `Preferences` 保存。
-- `RunNextTurnAsync` 是核心调度：选中下一位启用辩手，调用 `ContextComposer` 生成上下文，再用 `AiChatClient` 请求模型。
+- `RunNextTurnAsync` 是核心调度：从已站位 AI 中按正方/反方交错选择下一位，调用 `ContextComposer` 生成上下文，再用 `AiChatClient` 请求模型。
 - 人工插话默认排队，当前 AI 发言结束后由 `FlushQueuedInterjectionsAsync` 写入正式消息历史。
 - 上下文压缩由 `MaybeCompressContextAsync` 触发，保留近期消息，把更早消息压成中文记忆。
 - `AiChatClient` 根据 `AiProviderKind` 分流到 OpenAI-compatible、Anthropic Messages、Gemini generateContent。
 - OCR 当前只完成入口和服务抽象，后续应在 `OcrService` 接入真实视觉模型或本地 OCR。
+- DeepSeek 生成正反方战队提示词复用 `AiChatClient`，入口在 `OnGenerateSidePromptsClicked`。
 
 ## 后续建议
 

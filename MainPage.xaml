@@ -19,7 +19,7 @@
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="AI 辩论工作室" Style="{StaticResource TitleText}" />
-                            <Label x:Name="VersionLabel" Text="版本 1.1 · Windows / Android" Style="{StaticResource Caption}" />
+                            <Label x:Name="VersionLabel" Text="版本 1.2 · Windows / Android" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
                         <Border Grid.Column="1" Padding="10,6" BackgroundColor="{AppThemeBinding Light={StaticResource ChipBg}, Dark={StaticResource ChipBgDark}}" StrokeThickness="0">
                             <Label Text="中文主页" FontFamily="OpenSansSemibold" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ChipText}, Dark={StaticResource ChipTextDark}}" />
@@ -133,32 +133,16 @@
                         <VerticalStackLayout Spacing="10">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                 <VerticalStackLayout Spacing="4">
-                                    <Label Text="辩手配置" Style="{StaticResource SectionTitle}" />
-                                    <Label x:Name="DebaterSummaryLabel" Text="3 位辩手已启用" Style="{StaticResource Caption}" />
+                                    <Label Text="AI 池" Style="{StaticResource SectionTitle}" />
+                                    <Label x:Name="DebaterSummaryLabel" Text="0 个 AI · 正方 0 · 反方 0" Style="{StaticResource Caption}" />
                                 </VerticalStackLayout>
-                                <Button Grid.Column="1" Text="保存" Clicked="OnSaveClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                                <Button Grid.Column="1" Text="新增 AI" Clicked="OnAddAiClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
                             </Grid>
-                            <Picker x:Name="DebaterPicker" Title="选择辩手" SelectedIndexChanged="OnDebaterSelected" />
+                            <Picker x:Name="DebaterPicker" Title="选择要编辑的 AI" SelectedIndexChanged="OnDebaterSelected" />
+                            <Picker x:Name="ProviderPicker" Title="服务商预设" SelectedIndexChanged="OnProviderSelected" />
                             <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
-                                <Entry x:Name="DebaterNameEntry" Placeholder="辩手名称" TextChanged="OnDebaterConfigChanged" />
+                                <Entry x:Name="DebaterNameEntry" Placeholder="AI 名称；默认使用模型名" TextChanged="OnDebaterConfigChanged" />
                             </Border>
-                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
-                                <Entry x:Name="DebaterPositionEntry" Placeholder="立场" TextChanged="OnDebaterConfigChanged" />
-                            </Border>
-                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
-                                <Editor x:Name="DebaterPersonaEditor" AutoSize="TextChanges" MinimumHeightRequest="72" Placeholder="角色风格" TextChanged="OnDebaterConfigChanged" />
-                            </Border>
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                <Switch x:Name="DebaterEnabledSwitch" IsToggled="True" Toggled="OnDebaterEnabledToggled" />
-                                <Label Grid.Column="1" Text="启用该辩手" VerticalOptions="Center" Style="{StaticResource Caption}" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <Border Padding="14">
-                        <VerticalStackLayout Spacing="10">
-                            <Label Text="API 接入" Style="{StaticResource SectionTitle}" />
-                            <Picker x:Name="ProviderPicker" Title="快捷选择或手动填写" SelectedIndexChanged="OnProviderSelected" />
                             <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
                                 <Entry x:Name="BaseUrlEntry" Placeholder="Base URL" TextChanged="OnDebaterConfigChanged" />
                             </Border>
@@ -167,6 +151,9 @@
                             </Border>
                             <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
                                 <Entry x:Name="ApiKeyEntry" Placeholder="API Key" IsPassword="True" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="DebaterPersonaEditor" AutoSize="TextChanges" MinimumHeightRequest="58" Placeholder="可选：该 AI 的表达风格或限制" TextChanged="OnDebaterConfigChanged" />
                             </Border>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                 <Label Text="温度" VerticalOptions="Center" Style="{StaticResource Caption}" />
@@ -178,8 +165,33 @@
                                 <Slider x:Name="MaxTokensSlider" Grid.Column="1" Minimum="300" Maximum="4000" ValueChanged="OnMaxTokensChanged" />
                                 <Label x:Name="MaxTokensLabel" Grid.Column="2" Text="900" VerticalOptions="Center" Style="{StaticResource Caption}" />
                             </Grid>
-                            <Button Text="测试当前接口" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnTestApiClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
-                            <Label x:Name="ProviderHelpLabel" Text="选择一个服务商开始配置。" Style="{StaticResource Caption}" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text="测试接口" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnTestApiClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                                <Button Grid.Column="1" Text="保存" Clicked="OnSaveClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            </Grid>
+                            <Label x:Name="ProviderHelpLabel" Text="先把多个 API 添加为 AI 池，再在下方为正反方勾选站位。" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="站位与前置提示词" Style="{StaticResource SectionTitle}" />
+                                    <Label Text="同一个 AI 只能加入一个阵营；取消勾选即不参赛。" Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="DeepSeek 生成" Clicked="OnGenerateSidePromptsClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            </Grid>
+                            <Label Text="正方" Style="{StaticResource SectionTitle}" />
+                            <VerticalStackLayout x:Name="ProRosterStack" Spacing="4" />
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="ProPromptEditor" AutoSize="TextChanges" MinimumHeightRequest="72" Placeholder="正方前置提示词" TextChanged="OnSidePromptChanged" />
+                            </Border>
+                            <Label Text="反方" Style="{StaticResource SectionTitle}" />
+                            <VerticalStackLayout x:Name="ConRosterStack" Spacing="4" />
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="ConPromptEditor" AutoSize="TextChanges" MinimumHeightRequest="72" Placeholder="反方前置提示词" TextChanged="OnSidePromptChanged" />
+                            </Border>
                         </VerticalStackLayout>
                     </Border>
 

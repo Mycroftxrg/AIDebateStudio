@@ -107,6 +107,8 @@ public partial class MainPage : ContentPage
 		{
 			_debaters.AddRange(CreateDefaultDebaters());
 		}
+
+		MigrateDebaterSides();
 	}
 
 	private static IEnumerable<DebaterConfig> CreateDefaultDebaters()
@@ -116,19 +118,20 @@ public partial class MainPage : ContentPage
 		var openai = ApiPresetCatalog.Find("openai");
 		return
 		[
-			FromPreset(qwen, "qwen-plus", "正方：效率与创造力提升", "重视产业实践和应用案例，擅长把抽象观点落到具体场景。"),
-			FromPreset(deepseek, "deepseek-chat", "反方：风险与边界约束", "强调逻辑漏洞、成本、可靠性和长期外部性，发言尖锐但克制。"),
-			FromPreset(openai, "gpt-4.1-mini", "中立评审：追问证据", "负责补充关键追问、比较双方论证强弱，并推动辩论回到核心问题。")
+			FromPreset(qwen, "qwen-plus", DebateSide.Pro, "重视产业实践和应用案例，擅长把抽象观点落到具体场景。"),
+			FromPreset(deepseek, "deepseek-chat", DebateSide.Con, "强调逻辑漏洞、成本、可靠性和长期外部性，发言尖锐但克制。"),
+			FromPreset(openai, "gpt-4.1-mini", DebateSide.Neutral, "负责补充关键追问、比较双方论证强弱，并推动辩论回到核心问题。")
 		];
 	}
 
-	private static DebaterConfig FromPreset(ApiProviderPreset preset, string model, string position, string persona)
+	private static DebaterConfig FromPreset(ApiProviderPreset preset, string model, DebateSide side, string persona)
 	{
 		return new DebaterConfig
 		{
 			Name = model,
-			Position = position,
+			Position = side == DebateSide.Neutral ? string.Empty : GetSideName(side),
 			Persona = persona,
+			Side = side,
 			PresetId = preset.Id,
 			ProviderKind = preset.Kind,
 			BaseUrl = preset.BaseUrl,
@@ -144,6 +147,8 @@ public partial class MainPage : ContentPage
 		_isLoading = true;
 		TopicEditor.Text = _settings.Topic;
 		RulesEditor.Text = _settings.Rules;
+		ProPromptEditor.Text = _settings.ProSidePrompt;
+		ConPromptEditor.Text = _settings.ConSidePrompt;
 		RoundSlider.Value = _settings.MaxRounds;
 		CompressionSwitch.IsToggled = _settings.CompressionEnabled;
 		DebaterPicker.Items.Clear();
@@ -154,6 +159,7 @@ public partial class MainPage : ContentPage
 		DebaterPicker.SelectedIndex = Math.Clamp(_settings.NextDebaterIndex, 0, Math.Max(0, _debaters.Count - 1));
 		_isLoading = false;
 		LoadSelectedDebater();
+		RefreshRosterAssignments();
 		RefreshAll();
 	}
 
@@ -178,10 +184,16 @@ public partial class MainPage : ContentPage
 			return;
 		}
 
-		var enabled = _debaters.Where(d => d.Enabled).ToList();
+		var enabled = GetParticipants();
 		if (enabled.Count == 0)
 		{
-			await DisplayAlert("无法开始", "请至少启用一位辩手。", "知道了");
+			await DisplayAlert("无法开始", "请至少在正方或反方勾选一位 AI。", "知道了");
+			return;
+		}
+
+		if (!enabled.Any(d => d.Side == DebateSide.Pro) || !enabled.Any(d => d.Side == DebateSide.Con))
+		{
+			await DisplayAlert("站位不完整", "请至少为正方和反方各勾选一位 AI。", "知道了");
 			return;
 		}
 
@@ -601,20 +613,21 @@ public partial class MainPage : ContentPage
 
 	private void RefreshStatus()
 	{
-		var enabledCount = _debaters.Count(d => d.Enabled);
+		var proCount = _debaters.Count(d => d.Side == DebateSide.Pro);
+		var conCount = _debaters.Count(d => d.Side == DebateSide.Con);
 		FlowSummaryLabel.Text = $"第 {_settings.CurrentRound} / {_settings.MaxRounds} 轮 · 下位：{NextDebaterName()}";
 		QueueBadgeLabel.Text = $"插话队列 {_interjectionQueue.Count}";
-		DebaterSummaryLabel.Text = $"{enabledCount} 位辩手已启用";
+		DebaterSummaryLabel.Text = $"{_debaters.Count} 个 AI · 正方 {proCount} · 反方 {conCount}";
 		AutoButton.Text = _settings.AutoContinue ? "停止自动" : "自动辩论";
 		RoundCountLabel.Text = _settings.MaxRounds.ToString();
 		MemoryLabel.Text = string.IsNullOrWhiteSpace(_settings.MemorySummary) ? "尚未生成压缩记忆。" : Preview(_settings.MemorySummary, 900);
-		ChatSubtitleLabel.Text = _isBusy ? "当前 AI 正在发言；人工插话会等待本次发言结束后插入。" : "AI 依次轮流发言，人工插话进入等待队列。";
+		ChatSubtitleLabel.Text = _isBusy ? "当前 AI 正在发言；人工插话会等待本次发言结束后插入。" : "正反方 AI 按站位轮流发言，同队会承接队友论点。";
 	}
 
 	private string NextDebaterName()
 	{
-		var enabled = _debaters.Where(d => d.Enabled).ToList();
-		return enabled.Count == 0 ? "无" : GetDebaterDisplayName(enabled[_settings.NextDebaterIndex % enabled.Count]);
+		var participants = GetParticipants();
+		return participants.Count == 0 ? "无" : GetDebaterDisplayName(participants[_settings.NextDebaterIndex % participants.Count]);
 	}
 
 	private void AddQueuedMessage(string text)
@@ -667,9 +680,7 @@ public partial class MainPage : ContentPage
 
 		_isLoading = true;
 		DebaterNameEntry.Text = debater.Name;
-		DebaterPositionEntry.Text = debater.Position;
 		DebaterPersonaEditor.Text = debater.Persona;
-		DebaterEnabledSwitch.IsToggled = debater.Enabled;
 		BaseUrlEntry.Text = debater.BaseUrl;
 		ModelEntry.Text = debater.Model;
 		ApiKeyEntry.Text = debater.ApiKey;
@@ -702,6 +713,7 @@ public partial class MainPage : ContentPage
 
 		LoadSelectedDebater();
 		RefreshDebaterPickerNames();
+		RefreshRosterAssignments();
 		SaveState();
 	}
 
@@ -713,25 +725,74 @@ public partial class MainPage : ContentPage
 		}
 
 		debater.Name = string.IsNullOrWhiteSpace(DebaterNameEntry.Text) ? ModelEntry.Text?.Trim() ?? "未命名模型" : DebaterNameEntry.Text.Trim();
-		debater.Position = DebaterPositionEntry.Text?.Trim() ?? string.Empty;
 		debater.Persona = DebaterPersonaEditor.Text?.Trim() ?? string.Empty;
 		debater.BaseUrl = BaseUrlEntry.Text?.Trim() ?? string.Empty;
 		debater.Model = ModelEntry.Text?.Trim() ?? string.Empty;
 		debater.ApiKey = ApiKeyEntry.Text?.Trim() ?? string.Empty;
 		RefreshDebaterPickerNames();
+		RefreshRosterAssignments();
 		SaveState();
 	}
 
-	private void OnDebaterEnabledToggled(object? sender, ToggledEventArgs e)
+	private void OnSidePromptChanged(object? sender, TextChangedEventArgs e)
 	{
-		if (_isLoading || CurrentDebater is not { } debater)
+		if (_isLoading)
 		{
 			return;
 		}
 
-		debater.Enabled = e.Value;
+		_settings.ProSidePrompt = ProPromptEditor.Text?.Trim() ?? string.Empty;
+		_settings.ConSidePrompt = ConPromptEditor.Text?.Trim() ?? string.Empty;
+		SaveState();
+	}
+
+	private void OnAddAiClicked(object? sender, EventArgs e)
+	{
+		var preset = ApiPresetCatalog.Find("deepseek");
+		_debaters.Add(FromPreset(preset, preset.DefaultModel, DebateSide.Neutral, string.Empty));
+		RefreshDebaterPickerNames();
+		DebaterPicker.SelectedIndex = _debaters.Count - 1;
+		LoadSelectedDebater();
+		RefreshRosterAssignments();
 		RefreshStatus();
 		SaveState();
+		AddLog("已添加一个未站位 AI，请填写 API Key 后勾选正方或反方。");
+	}
+
+	private async void OnGenerateSidePromptsClicked(object? sender, EventArgs e)
+	{
+		var topic = TopicEditor.Text?.Trim();
+		if (string.IsNullOrWhiteSpace(topic))
+		{
+			await DisplayAlert("缺少辩题", "请先填写辩题，再生成正反方前置提示词。", "知道了");
+			return;
+		}
+
+		var generator = FindDeepSeekPromptGenerator();
+		if (generator is null)
+		{
+			await DisplayAlert("缺少 DeepSeek", "请先在 AI 池添加 DeepSeek，并填写 API Key。", "知道了");
+			return;
+		}
+
+		SetBusy(true, "DeepSeek 正在生成正反方前置提示词...");
+		try
+		{
+			var messages = _contextComposer.BuildSidePromptGenerationMessages(topic);
+			var json = await _chatClient.CompleteAsync(generator, messages, CancellationToken.None);
+			ApplyGeneratedSidePrompts(json);
+			AddLog("DeepSeek 已生成正反方前置提示词。");
+		}
+		catch (Exception ex)
+		{
+			await DisplayAlert("生成失败", ex.Message, "知道了");
+		}
+		finally
+		{
+			SetBusy(_isBusy, _isBusy ? "AI 正在发言..." : "准备就绪");
+			RefreshStatus();
+			SaveState();
+		}
 	}
 
 	private void OnTemperatureChanged(object? sender, ValueChangedEventArgs e)
@@ -798,10 +859,171 @@ public partial class MainPage : ContentPage
 		DebaterPicker.SelectedIndex = Math.Clamp(selected, 0, Math.Max(0, _debaters.Count - 1));
 	}
 
+	private void RefreshRosterAssignments()
+	{
+		ProRosterStack.Children.Clear();
+		ConRosterStack.Children.Clear();
+		foreach (var debater in _debaters)
+		{
+			ProRosterStack.Children.Add(CreateSideAssignmentRow(debater, DebateSide.Pro));
+			ConRosterStack.Children.Add(CreateSideAssignmentRow(debater, DebateSide.Con));
+		}
+	}
+
+	private View CreateSideAssignmentRow(DebaterConfig debater, DebateSide side)
+	{
+		var checkBox = new CheckBox
+		{
+			IsChecked = debater.Side == side,
+			VerticalOptions = LayoutOptions.Center
+		};
+		checkBox.CheckedChanged += (_, args) =>
+		{
+			if (_isLoading)
+			{
+				return;
+			}
+
+			debater.Side = args.Value ? side : DebateSide.Neutral;
+			debater.Position = debater.Side == DebateSide.Neutral ? string.Empty : GetSideName(debater.Side);
+			debater.Enabled = debater.Side != DebateSide.Neutral;
+			RefreshDebaterPickerNames();
+			RefreshRosterAssignments();
+			RefreshStatus();
+			SaveState();
+		};
+
+		var label = new Label
+		{
+			Text = GetAiPoolName(debater),
+			Style = CaptionStyle,
+			VerticalOptions = LayoutOptions.Center
+		};
+		Grid.SetColumn(label, 1);
+
+		var row = new Grid
+		{
+			ColumnDefinitions =
+			{
+				new ColumnDefinition { Width = GridLength.Auto },
+				new ColumnDefinition { Width = GridLength.Star }
+			},
+			ColumnSpacing = 6
+		};
+		row.Children.Add(checkBox);
+		row.Children.Add(label);
+		return row;
+	}
+
+	private List<DebaterConfig> GetParticipants()
+	{
+		var pro = _debaters.Where(d => d.Side == DebateSide.Pro).ToList();
+		var con = _debaters.Where(d => d.Side == DebateSide.Con).ToList();
+		var participants = new List<DebaterConfig>();
+		var max = Math.Max(pro.Count, con.Count);
+		for (var i = 0; i < max; i++)
+		{
+			if (i < pro.Count)
+			{
+				participants.Add(pro[i]);
+			}
+
+			if (i < con.Count)
+			{
+				participants.Add(con[i]);
+			}
+		}
+
+		return participants;
+	}
+
+	private DebaterConfig? FindDeepSeekPromptGenerator()
+	{
+		return _debaters.FirstOrDefault(d =>
+			!string.IsNullOrWhiteSpace(d.ApiKey) &&
+			(d.PresetId.Equals("deepseek", StringComparison.OrdinalIgnoreCase) ||
+			 d.BaseUrl.Contains("deepseek", StringComparison.OrdinalIgnoreCase) ||
+			 d.Model.Contains("deepseek", StringComparison.OrdinalIgnoreCase)));
+	}
+
+	private void ApplyGeneratedSidePrompts(string raw)
+	{
+		var json = ExtractJsonObject(raw);
+		using var document = JsonDocument.Parse(json);
+		var root = document.RootElement;
+		var pro = root.TryGetProperty("pro", out var proElement) ? proElement.GetString() : null;
+		var con = root.TryGetProperty("con", out var conElement) ? conElement.GetString() : null;
+		if (string.IsNullOrWhiteSpace(pro) || string.IsNullOrWhiteSpace(con))
+		{
+			throw new InvalidOperationException("DeepSeek 返回内容中没有找到 pro/con 字段。");
+		}
+
+		_settings.ProSidePrompt = pro.Trim();
+		_settings.ConSidePrompt = con.Trim();
+		_isLoading = true;
+		ProPromptEditor.Text = _settings.ProSidePrompt;
+		ConPromptEditor.Text = _settings.ConSidePrompt;
+		_isLoading = false;
+	}
+
+	private static string ExtractJsonObject(string raw)
+	{
+		var start = raw.IndexOf('{');
+		var end = raw.LastIndexOf('}');
+		if (start < 0 || end <= start)
+		{
+			throw new InvalidOperationException("DeepSeek 没有返回可解析的 JSON。");
+		}
+
+		return raw[start..(end + 1)];
+	}
+
+	private void MigrateDebaterSides()
+	{
+		foreach (var debater in _debaters)
+		{
+			if (debater.Side != DebateSide.Neutral)
+			{
+				debater.Position = GetSideName(debater.Side);
+				debater.Enabled = true;
+				continue;
+			}
+
+			if (debater.Position.Contains("正方", StringComparison.OrdinalIgnoreCase))
+			{
+				debater.Side = DebateSide.Pro;
+			}
+			else if (debater.Position.Contains("反方", StringComparison.OrdinalIgnoreCase))
+			{
+				debater.Side = DebateSide.Con;
+			}
+
+			debater.Position = debater.Side == DebateSide.Neutral ? string.Empty : GetSideName(debater.Side);
+			debater.Enabled = debater.Side != DebateSide.Neutral;
+		}
+	}
+
 	private static string GetDebaterDisplayName(DebaterConfig debater)
 	{
 		var model = string.IsNullOrWhiteSpace(debater.Model) ? "未设置模型" : debater.Model;
+		var name = string.IsNullOrWhiteSpace(debater.Name) || debater.Name == model ? model : $"{debater.Name} / {model}";
+		return $"{name}（{GetSideName(debater.Side)}）";
+	}
+
+	private static string GetAiPoolName(DebaterConfig debater)
+	{
+		var model = string.IsNullOrWhiteSpace(debater.Model) ? "未设置模型" : debater.Model;
 		return string.IsNullOrWhiteSpace(debater.Name) || debater.Name == model ? model : $"{debater.Name} / {model}";
+	}
+
+	private static string GetSideName(DebateSide side)
+	{
+		return side switch
+		{
+			DebateSide.Pro => "正方",
+			DebateSide.Con => "反方",
+			_ => "未站位"
+		};
 	}
 
 	private void SaveState()
@@ -819,6 +1041,8 @@ public partial class MainPage : ContentPage
 	{
 		target.Topic = source.Topic;
 		target.Rules = source.Rules;
+		target.ProSidePrompt = string.IsNullOrWhiteSpace(source.ProSidePrompt) ? target.ProSidePrompt : source.ProSidePrompt;
+		target.ConSidePrompt = string.IsNullOrWhiteSpace(source.ConSidePrompt) ? target.ConSidePrompt : source.ConSidePrompt;
 		target.MaxRounds = source.MaxRounds;
 		target.CurrentRound = source.CurrentRound;
 		target.NextDebaterIndex = source.NextDebaterIndex;
