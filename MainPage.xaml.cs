@@ -12,6 +12,7 @@ public partial class MainPage : ContentPage
 	private readonly ContextComposer _contextComposer = new();
 	private readonly FileParsingService _fileParsingService = new();
 	private readonly OcrService _ocrService = new();
+	private readonly SiliconFlowModelService _siliconFlowModelService = new();
 	private readonly List<DebateMessage> _messages = [];
 	private readonly List<AttachmentContext> _attachments = [];
 	private readonly Queue<string> _interjectionQueue = new();
@@ -690,7 +691,7 @@ public partial class MainPage : ContentPage
 		MaxTokensLabel.Text = debater.MaxTokens.ToString();
 		var presetIndex = Math.Max(0, ApiPresetCatalog.All.ToList().FindIndex(p => p.Id == debater.PresetId));
 		ProviderPicker.SelectedIndex = presetIndex;
-		ProviderHelpLabel.Text = ApiPresetCatalog.Find(debater.PresetId).HelpText;
+		RefreshModelPicker(ApiPresetCatalog.Find(debater.PresetId), debater.Model);
 		_isLoading = false;
 	}
 
@@ -715,6 +716,70 @@ public partial class MainPage : ContentPage
 		RefreshDebaterPickerNames();
 		RefreshRosterAssignments();
 		SaveState();
+	}
+
+	private void OnModelSelected(object? sender, EventArgs e)
+	{
+		if (_isLoading || CurrentDebater is not { } debater || ModelPicker.SelectedIndex < 0)
+		{
+			return;
+		}
+
+		var selected = ModelPicker.Items[ModelPicker.SelectedIndex];
+		if (string.IsNullOrWhiteSpace(selected))
+		{
+			return;
+		}
+
+		debater.Model = selected;
+		if (string.IsNullOrWhiteSpace(debater.Name) || debater.Name == ModelEntry.Text)
+		{
+			debater.Name = selected;
+		}
+
+		_isLoading = true;
+		ModelEntry.Text = selected;
+		DebaterNameEntry.Text = debater.Name;
+		_isLoading = false;
+		RefreshDebaterPickerNames();
+		RefreshRosterAssignments();
+		SaveState();
+	}
+
+	private async void OnRefreshModelsClicked(object? sender, EventArgs e)
+	{
+		if (CurrentDebater is not { } debater)
+		{
+			return;
+		}
+
+		if (!IsSiliconFlow(debater))
+		{
+			await DisplayAlert("无法刷新", "当前 AI 不是硅基流动预设。", "知道了");
+			return;
+		}
+
+		SetBusy(true, "正在读取硅基流动模型列表...");
+		try
+		{
+			var models = await _siliconFlowModelService.GetChatModelsAsync(debater.BaseUrl, debater.ApiKey, CancellationToken.None);
+			if (models.Count == 0)
+			{
+				await DisplayAlert("没有模型", "硅基流动返回了空模型列表。", "知道了");
+				return;
+			}
+
+			RefreshModelPicker(ApiPresetCatalog.Find(debater.PresetId), debater.Model, models);
+			AddLog($"已读取硅基流动模型列表：{models.Count} 个。");
+		}
+		catch (Exception ex)
+		{
+			await DisplayAlert("模型列表失败", ex.Message, "知道了");
+		}
+		finally
+		{
+			SetBusy(_isBusy, _isBusy ? "AI 正在发言..." : "准备就绪");
+		}
 	}
 
 	private void OnDebaterConfigChanged(object? sender, TextChangedEventArgs e)
@@ -857,6 +922,45 @@ public partial class MainPage : ContentPage
 			DebaterPicker.Items.Add(GetDebaterDisplayName(debater));
 		}
 		DebaterPicker.SelectedIndex = Math.Clamp(selected, 0, Math.Max(0, _debaters.Count - 1));
+	}
+
+	private void RefreshModelPicker(ApiProviderPreset preset, string currentModel, IReadOnlyList<string>? dynamicModels = null)
+	{
+		var models = new List<string>();
+		if (dynamicModels is not null)
+		{
+			models.AddRange(dynamicModels);
+		}
+
+		models.AddRange(preset.Models);
+		if (!string.IsNullOrWhiteSpace(preset.DefaultModel))
+		{
+			models.Add(preset.DefaultModel);
+		}
+
+		if (!string.IsNullOrWhiteSpace(currentModel))
+		{
+			models.Add(currentModel);
+		}
+
+		models = models
+			.Where(model => !string.IsNullOrWhiteSpace(model))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.ToList();
+
+		ModelPicker.Items.Clear();
+		foreach (var model in models)
+		{
+			ModelPicker.Items.Add(model);
+		}
+
+		ModelPicker.IsEnabled = models.Count > 0;
+		ModelPicker.SelectedIndex = string.IsNullOrWhiteSpace(currentModel)
+			? -1
+			: models.FindIndex(model => model.Equals(currentModel, StringComparison.OrdinalIgnoreCase));
+		RefreshModelsButton.IsVisible = preset.Id == "siliconflow";
+		RefreshModelsButton.IsEnabled = preset.Id == "siliconflow";
+		ProviderHelpLabel.Text = preset.HelpText;
 	}
 
 	private void RefreshRosterAssignments()
@@ -1024,6 +1128,12 @@ public partial class MainPage : ContentPage
 			DebateSide.Con => "反方",
 			_ => "未站位"
 		};
+	}
+
+	private static bool IsSiliconFlow(DebaterConfig debater)
+	{
+		return debater.PresetId.Equals("siliconflow", StringComparison.OrdinalIgnoreCase) ||
+			debater.BaseUrl.Contains("siliconflow", StringComparison.OrdinalIgnoreCase);
 	}
 
 	private void SaveState()

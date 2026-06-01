@@ -7,7 +7,9 @@ public sealed record ApiProviderPreset(
 	AiProviderKind Kind,
 	string BaseUrl,
 	string DefaultModel,
-	string HelpText)
+	string HelpText,
+	IReadOnlyList<string>? SuggestedModels = null)
 {
 	public bool IsManual => Id == "manual";
+	public IReadOnlyList<string> Models => SuggestedModels ?? [];
 }

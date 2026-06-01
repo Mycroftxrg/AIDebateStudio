@@ -146,6 +146,7 @@
                             <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
                                 <Entry x:Name="BaseUrlEntry" Placeholder="Base URL" TextChanged="OnDebaterConfigChanged" />
                             </Border>
+                            <Picker x:Name="ModelPicker" Title="模型选择" SelectedIndexChanged="OnModelSelected" />
                             <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
                                 <Entry x:Name="ModelEntry" Placeholder="模型名" TextChanged="OnDebaterConfigChanged" />
                             </Border>
@@ -169,6 +170,7 @@
                                 <Button Text="测试接口" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnTestApiClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
                                 <Button Grid.Column="1" Text="保存" Clicked="OnSaveClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
                             </Grid>
+                            <Button x:Name="RefreshModelsButton" Text="刷新硅基流动模型" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnRefreshModelsClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
                             <Label x:Name="ProviderHelpLabel" Text="先把多个 API 添加为 AI 池，再在下方为正反方勾选站位。" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
                     </Border>

@@ -18,6 +18,7 @@
 - 辩论调度只使用已站位 AI，按正方/反方交错发言。
 - system prompt 增加同队协作要求：承接队友论点、补强薄弱处、避免重复，并可分工推进。
 - 旧版保存的“正方/反方”立场文本会自动迁移到新阵营字段。
+- 硅基流动预设支持常用模型快捷选择，并可用 API Key 调 `/v1/models?type=text&sub_type=chat` 刷新账号可用模型。
 
 ## 1.1.0 已完成
 
@@ -47,6 +48,7 @@
 - API 调用：[Services\AiChatClient.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\AiChatClient.cs)
 - 上下文拼装和压缩提示：[Services\ContextComposer.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\ContextComposer.cs)
 - 厂商预设：[Services\ApiPresetCatalog.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\ApiPresetCatalog.cs)
+- 硅基流动模型列表：[Services\SiliconFlowModelService.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\SiliconFlowModelService.cs)
 - 文件解析：[Services\FileParsingService.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\FileParsingService.cs)
 - OCR 入口：[Services\OcrService.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\OcrService.cs)
 - 启动诊断：[Services\StartupDiagnostics.cs](C:\Users\ASUS\Desktop\AIDebateStudio\Services\StartupDiagnostics.cs)
