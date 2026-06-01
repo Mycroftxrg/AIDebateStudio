@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="AIDebateStudio.MainPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Shell.NavBarIsVisible="False"
+    Title="AI 辩论工作室">
+
+    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource PageBg}, Dark={StaticResource PageBgDark}}">
+        <Grid
+            x:Name="RootGrid"
+            Padding="18"
+            ColumnDefinitions="320,*,360"
+            ColumnSpacing="14"
+            RowDefinitions="*">
+
+            <ScrollView Grid.Column="0">
+                <VerticalStackLayout x:Name="LeftPanel" Spacing="10" Opacity="0" TranslationY="16">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="AI 辩论工作室" Style="{StaticResource TitleText}" />
+                            <Label x:Name="VersionLabel" Text="版本 1.0.0 · Windows / Android" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                        <Border Grid.Column="1" Padding="10,6" BackgroundColor="{AppThemeBinding Light={StaticResource ChipBg}, Dark={StaticResource ChipBgDark}}" StrokeThickness="0">
+                            <Label Text="中文主页" FontFamily="OpenSansSemibold" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ChipText}, Dark={StaticResource ChipTextDark}}" />
+                        </Border>
+                    </Grid>
+
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="辩题" Style="{StaticResource SectionTitle}" />
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="TopicEditor" AutoSize="TextChanges" MinimumHeightRequest="86" Placeholder="输入辩题" TextChanged="OnDebateSettingChanged" />
+                            </Border>
+                            <Label Text="规则" Style="{StaticResource SectionTitle}" />
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="RulesEditor" AutoSize="TextChanges" MinimumHeightRequest="108" Placeholder="输入辩论规则" TextChanged="OnDebateSettingChanged" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="流程控制" Style="{StaticResource SectionTitle}" />
+                                    <Label x:Name="FlowSummaryLabel" Text="第 0 轮 · 待开始" Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                                <ActivityIndicator x:Name="BusyIndicator" Grid.Column="1" IsRunning="False" IsVisible="False" WidthRequest="28" HeightRequest="28" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text="下一位发言" Clicked="OnNextTurnClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                                <Button Grid.Column="1" x:Name="AutoButton" Text="自动辩论" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnAutoClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text="压缩上下文" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnCompressClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                                <Button Grid.Column="1" Text="清空对话" BackgroundColor="{AppThemeBinding Light={StaticResource PanelRaised}, Dark={StaticResource PanelRaisedDark}}" TextColor="{StaticResource Danger}" Clicked="OnClearClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <Label Text="最大轮数" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                <Slider x:Name="RoundSlider" Grid.Column="1" Minimum="1" Maximum="12" ValueChanged="OnRoundSliderChanged" />
+                                <Label x:Name="RoundCountLabel" Grid.Column="2" Text="4" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Switch x:Name="CompressionSwitch" IsToggled="True" Toggled="OnCompressionToggled" />
+                                <Label Grid.Column="1" Text="启用长对话压缩记忆" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="资料与日志" Style="{StaticResource SectionTitle}" />
+                                    <Label x:Name="AttachmentSummaryLabel" Text="暂无资料" Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="导出" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnExportClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            </Grid>
+                            <VerticalStackLayout x:Name="AttachmentStack" Spacing="6" />
+                            <Label x:Name="LogLabel" Text="日志：应用已启动。" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                <Border x:Name="ChatHeader" Grid.Row="0" Padding="14" Opacity="0" TranslationY="16">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="4">
+                            <Label x:Name="ChatTitleLabel" Text="辩论现场" Style="{StaticResource SectionTitle}" />
+                            <Label x:Name="ChatSubtitleLabel" Text="AI 依次轮流发言，人工插话进入等待队列。" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                        <Border Grid.Column="1" Padding="10,6" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" StrokeThickness="0" VerticalOptions="Center">
+                            <Label x:Name="QueueBadgeLabel" Text="插话队列 0" Style="{StaticResource Caption}" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="ChatSurface" Grid.Row="1" Padding="0" Opacity="0" TranslationY="18">
+                    <ScrollView x:Name="ChatScrollView">
+                        <VerticalStackLayout x:Name="MessageStack" Padding="14" Spacing="10">
+                            <Border Padding="14" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="欢迎使用 AI 辩论工作室" FontFamily="OpenSansSemibold" FontSize="16" />
+                                    <Label Text="配置右侧辩手和 API 后，点击“下一位发言”开始。你在底栏输入的插话会先排队，等当前 AI 说完后再插入正式对话。" Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Border>
+
+                <Border x:Name="ComposerPanel" Grid.Row="2" Padding="12" Opacity="0" TranslationY="18">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+                        <HorizontalStackLayout Spacing="8">
+                            <Button Text="添加文件" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnAttachFileClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            <Button Text="OCR 图片" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnOcrClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            <Button Text="立即插入" BackgroundColor="{AppThemeBinding Light={StaticResource PanelRaised}, Dark={StaticResource PanelRaisedDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnInsertNowClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                        </HorizontalStackLayout>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="UserInputEditor" AutoSize="TextChanges" MinimumHeightRequest="58" Placeholder="输入人工插话；辩论运行中会进入等待队列" />
+                            </Border>
+                            <Button Grid.Column="1" Text="发送" MinimumWidthRequest="86" Clicked="OnSendInterjectionClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <ScrollView Grid.Column="2">
+                <VerticalStackLayout x:Name="RightPanel" Spacing="10" Opacity="0" TranslationY="16">
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="辩手配置" Style="{StaticResource SectionTitle}" />
+                                    <Label x:Name="DebaterSummaryLabel" Text="3 位辩手已启用" Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="保存" Clicked="OnSaveClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            </Grid>
+                            <Picker x:Name="DebaterPicker" Title="选择辩手" SelectedIndexChanged="OnDebaterSelected" />
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Entry x:Name="DebaterNameEntry" Placeholder="辩手名称" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Entry x:Name="DebaterPositionEntry" Placeholder="立场" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Editor x:Name="DebaterPersonaEditor" AutoSize="TextChanges" MinimumHeightRequest="72" Placeholder="角色风格" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Switch x:Name="DebaterEnabledSwitch" IsToggled="True" Toggled="OnDebaterEnabledToggled" />
+                                <Label Grid.Column="1" Text="启用该辩手" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="API 接入" Style="{StaticResource SectionTitle}" />
+                            <Picker x:Name="ProviderPicker" Title="快捷选择或手动填写" SelectedIndexChanged="OnProviderSelected" />
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Entry x:Name="BaseUrlEntry" Placeholder="Base URL" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Entry x:Name="ModelEntry" Placeholder="模型名" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
+                                <Entry x:Name="ApiKeyEntry" Placeholder="API Key" IsPassword="True" TextChanged="OnDebaterConfigChanged" />
+                            </Border>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <Label Text="温度" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                <Slider x:Name="TemperatureSlider" Grid.Column="1" Minimum="0" Maximum="1.5" ValueChanged="OnTemperatureChanged" />
+                                <Label x:Name="TemperatureLabel" Grid.Column="2" Text="0.7" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <Label Text="输出" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                <Slider x:Name="MaxTokensSlider" Grid.Column="1" Minimum="300" Maximum="4000" ValueChanged="OnMaxTokensChanged" />
+                                <Label x:Name="MaxTokensLabel" Grid.Column="2" Text="900" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            </Grid>
+                            <Button Text="测试当前接口" BackgroundColor="{AppThemeBinding Light={StaticResource ControlBg}, Dark={StaticResource ControlBgDark}}" TextColor="{AppThemeBinding Light={StaticResource TextStrong}, Dark={StaticResource TextStrongDark}}" Clicked="OnTestApiClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
+                            <Label x:Name="ProviderHelpLabel" Text="选择一个服务商开始配置。" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Padding="14">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="长对话记忆" Style="{StaticResource SectionTitle}" />
+                            <Label x:Name="MemoryLabel" Text="尚未生成压缩记忆。" Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+    </Grid>
+</ContentPage>
