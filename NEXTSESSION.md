@@ -4,14 +4,21 @@
 
 - 仓库：`C:\Users\ASUS\Desktop\AIDebateStudio`
 - 远端：`https://github.com/Mycroftxrg/AIDebateStudio.git`
-- 当前发布 tag：`v1.2.0`
+- 当前发布 tag：`v1.2.1`
 - 当前主分支：`main`
 - 目标平台：Windows、Android
-- 技术栈：.NET 10、.NET MAUI、OpenAI-compatible/Anthropic/Gemini REST API、OpenXML、PdfPig
+- 技术栈：.NET 10、.NET MAUI、硅基流动 OpenAI-compatible API、OpenXML、PdfPig
 
-## 1.2.0 已完成
+## 1.2.1 已完成
 
 - 将 API 配置重构为 AI 池：先添加多个 API/模型，再统一勾选正反方站位。
+- 服务商入口已按用户要求收敛为硅基流动；新建 AI 默认使用硅基流动，旧配置启动时迁移到硅基流动兼容接口。
+- AI 池已改为卡片展示，卡片支持编辑、删除，展示模型、站位、API Key 状态和 Base URL。
+- API Key 输入不再触发整组 UI 重绘，状态保存改为 300ms 防抖，降低输入 Key 后新增 AI 的卡死风险。
+- 自动辩论续跑改为显式循环，避免长时间运行递归续跑造成 UI 卡顿。
+- 聊天消息支持常见 Markdown：标题、列表、引用、代码块、加粗、斜体、行内代码。
+- 黑色模式消息卡片已改用主题色，避免白底浅字。
+- 最大轮数上限从 12 扩大到 60。
 - 新增 `DebateSide` 阵营模型，AI 显示名会带 `（正方）`、`（反方）`、`（未站位）`。
 - 正方、反方分别拥有独立前置提示词，并持久化保存。
 - 新增 DeepSeek 生成按钮，根据当前辩题生成简短明确的正反方战队提示词。
@@ -40,6 +47,12 @@
 - Windows 安装包：`artifacts\windows\AIDebateStudio-1.2-windows-x64-setup.exe`
 - Android APK：`artifacts\android\AIDebateStudio-1.2-android-arm64-signed.apk`
 - GitHub Release 正文来源：`RELEASE_NOTES_v1.2.0.md`
+
+## 1.2.1 发布资产
+
+- Windows 安装包：`artifacts\windows\AIDebateStudio-1.2.1-windows-x64-setup.exe`
+- Android APK：`artifacts\android\AIDebateStudio-1.2.1-android-arm64-signed.apk`
+- GitHub Release 正文来源：`RELEASE_NOTES_v1.2.1.md`
 
 ## 重要代码入口
 
@@ -75,7 +88,7 @@ dotnet publish .\AIDebateStudio.csproj -f net10.0-android -c Release
 - `RunNextTurnAsync` 是核心调度：从已站位 AI 中按正方/反方交错选择下一位，调用 `ContextComposer` 生成上下文，再用 `AiChatClient` 请求模型。
 - 人工插话默认排队，当前 AI 发言结束后由 `FlushQueuedInterjectionsAsync` 写入正式消息历史。
 - 上下文压缩由 `MaybeCompressContextAsync` 触发，保留近期消息，把更早消息压成中文记忆。
-- `AiChatClient` 根据 `AiProviderKind` 分流到 OpenAI-compatible、Anthropic Messages、Gemini generateContent。
+- `AiChatClient` 仍保留 OpenAI-compatible、Anthropic、Gemini 分流代码，但当前 UI 入口只暴露硅基流动 OpenAI-compatible。
 - OCR 当前只完成入口和服务抽象，后续应在 `OcrService` 接入真实视觉模型或本地 OCR。
 - DeepSeek 生成正反方战队提示词复用 `AiChatClient`，入口在 `OnGenerateSidePromptsClicked`。
 
@@ -83,6 +96,7 @@ dotnet publish .\AIDebateStudio.csproj -f net10.0-android -c Release
 
 - 迁移 .NET 10/MAUI 过时 API：`DisplayAlertAsync`、`FadeToAsync`、`TranslateToAsync`、`ScaleToAsync`。
 - 给 API Key 存储换成系统凭据库或加密存储，当前 Preferences 更适合个人本机使用。
+- 后续如果继续扩展模型选择，优先增强 `SiliconFlowModelService` 的在线模型列表和筛选，而不是重新加回多服务商 UI。
 - 做真实 OCR：优先明确走视觉模型 API 还是本地 OCR，再扩展 `OcrService`。
 - 增加 Android 多 ABI 或通用分发策略，如果需要覆盖更多设备。
 - 给 `AiChatClient` 和 `ContextComposer` 加小型单元测试，特别是三类 API payload 和上下文压缩边界。

@@ -19,7 +19,7 @@
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="AI 辩论工作室" Style="{StaticResource TitleText}" />
-                            <Label x:Name="VersionLabel" Text="版本 1.2 · Windows / Android" Style="{StaticResource Caption}" />
+                            <Label x:Name="VersionLabel" Text="版本 1.2.1 · Windows / Android" Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
                         <Border Grid.Column="1" Padding="10,6" BackgroundColor="{AppThemeBinding Light={StaticResource ChipBg}, Dark={StaticResource ChipBgDark}}" StrokeThickness="0">
                             <Label Text="中文主页" FontFamily="OpenSansSemibold" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ChipText}, Dark={StaticResource ChipTextDark}}" />
@@ -58,7 +58,7 @@
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                 <Label Text="最大轮数" VerticalOptions="Center" Style="{StaticResource Caption}" />
-                                <Slider x:Name="RoundSlider" Grid.Column="1" Minimum="1" Maximum="12" ValueChanged="OnRoundSliderChanged" />
+                                <Slider x:Name="RoundSlider" Grid.Column="1" Minimum="1" Maximum="60" ValueChanged="OnRoundSliderChanged" />
                                 <Label x:Name="RoundCountLabel" Grid.Column="2" Text="4" VerticalOptions="Center" Style="{StaticResource Caption}" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -138,7 +138,9 @@
                                 </VerticalStackLayout>
                                 <Button Grid.Column="1" Text="新增 AI" Clicked="OnAddAiClicked" Pressed="OnButtonPressed" Released="OnButtonReleased" />
                             </Grid>
-                            <Picker x:Name="DebaterPicker" Title="选择要编辑的 AI" SelectedIndexChanged="OnDebaterSelected" />
+                            <VerticalStackLayout x:Name="AiPoolStack" Spacing="8" />
+                            <Picker x:Name="DebaterPicker" Title="选择要编辑的 AI" SelectedIndexChanged="OnDebaterSelected" IsVisible="False" />
+                            <Label x:Name="CurrentAiLabel" Text="正在编辑：未选择" Style="{StaticResource Caption}" />
                             <Picker x:Name="ProviderPicker" Title="服务商预设" SelectedIndexChanged="OnProviderSelected" />
                             <Border Padding="10,0" BackgroundColor="{AppThemeBinding Light={StaticResource PanelAlt}, Dark={StaticResource PanelAltDark}}" StrokeThickness="0">
                                 <Entry x:Name="DebaterNameEntry" Placeholder="AI 名称；默认使用模型名" TextChanged="OnDebaterConfigChanged" />

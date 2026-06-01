@@ -7,9 +7,9 @@ AI 辩论工作室是一款中文优先的跨平台 AI 辩论软件，基于 .NE
 - AI 池与战队站位：先添加多个 API/模型进入 AI 池，再通过正方/反方列表勾选参赛站位。
 - 多 AI 轮流辩论：已站位 AI 按正反方轮流发言，同队 AI 会承接队友论点并补强薄弱处。
 - 战队提示词：正方、反方分别拥有独立前置提示词，可由 DeepSeek 根据辩题生成简短明确的战队提示词。
-- 多厂商 API：内置 OpenAI、Anthropic、Gemini、OpenRouter、Groq、Mistral、xAI、DeepSeek、通义千问、豆包、智谱、Kimi、文心、混元、硅基流动、阶跃星辰、零一万物等快捷预设。
-- 硅基流动增强：内置常用 chat 模型快捷选择，并支持用 API Key 刷新 `/v1/models` 获取账号可用模型。
-- 手动接入：支持自定义 Base URL、模型名、API Key，适配 OpenAI-compatible 网关或自建代理。
+- 硅基流动专用接入：服务商入口收敛为硅基流动，内置常用 chat 模型快捷选择，并支持用 API Key 刷新 `/v1/models?type=text&sub_type=chat` 获取账号可用模型。
+- AI 池卡片：每个 AI 以卡片展示模型、站位、Key 状态和 Base URL，可直接编辑或删除。
+- Markdown 回答：聊天窗口支持标题、列表、引用、代码块、加粗、斜体和行内代码等常见 Markdown。
 - 人工插话队列：辩论运行中输入的内容进入等待队列，上一个辩手说完后再插入，后续 AI 会读取插话后的完整历史。
 - 长对话压缩：保留近期原文，将更早对话滚动压缩成中文记忆，降低长辩论上下文压力。
 - 文件解析：支持 txt、md、csv、json、xml、代码文本、PDF、docx、pptx、xlsx 等资料入口。
@@ -42,14 +42,12 @@ AI 辩论工作室是一款中文优先的跨平台 AI 辩论软件，基于 .NE
 
 ## 1.2 版本说明
 
-当前版本将 API 配置改造为 AI 池流程，并把正反方站位从单个辩手表单中拆出：用户可以先添加多个 API，再用列表勾选参赛阵营。正反方拥有独立前置提示词，DeepSeek 可根据辩题生成简短明确的战队提示词。硅基流动支持常用模型快捷选择和账号模型列表刷新。OCR 已建立入口和服务抽象，但真实图像文字识别仍需后续接入视觉模型或本地 OCR 引擎。
+当前版本将 API 配置改造为硅基流动专用 AI 池流程，并把正反方站位从单个辩手表单中拆出：用户可以先添加多个硅基流动模型，再用列表勾选参赛阵营。AI 池使用卡片展示，支持编辑和删除。正反方拥有独立前置提示词，DeepSeek 可根据辩题生成简短明确的战队提示词。硅基流动支持常用模型快捷选择和账号模型列表刷新。聊天窗口已支持常见 Markdown，最大轮数上限扩大到 60 轮。OCR 已建立入口和服务抽象，但真实图像文字识别仍需后续接入视觉模型或本地 OCR 引擎。
 
 ## 技术栈
 
 - .NET 10
 - .NET MAUI
 - OpenAI-compatible Chat Completions
-- Anthropic Messages API
-- Gemini generateContent REST API
 - DocumentFormat.OpenXml
 - PdfPig

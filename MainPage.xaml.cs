@@ -21,8 +21,20 @@ public partial class MainPage : ContentPage
 	private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 	private bool _isBusy;
 	private bool _isLoading;
+	private bool _isAutoLoopRunning;
 	private CancellationTokenSource? _turnCts;
+	private CancellationTokenSource? _saveCts;
 	private Style CaptionStyle => (Style)Application.Current!.Resources["Caption"];
+	private Color PanelAltColor => (Color)Application.Current!.Resources["PanelAlt"];
+	private Color PanelAltDarkColor => (Color)Application.Current!.Resources["PanelAltDark"];
+	private Color PanelBgColor => (Color)Application.Current!.Resources["PanelBg"];
+	private Color PanelBgDarkColor => (Color)Application.Current!.Resources["PanelBgDark"];
+	private Color ControlBgColor => (Color)Application.Current!.Resources["ControlBg"];
+	private Color ControlBgDarkColor => (Color)Application.Current!.Resources["ControlBgDark"];
+	private Color TextStrongColor => (Color)Application.Current!.Resources["TextStrong"];
+	private Color TextStrongDarkColor => (Color)Application.Current!.Resources["TextStrongDark"];
+	private Color PrimaryColor => (Color)Application.Current!.Resources["Primary"];
+	private Color ChipTextDarkColor => (Color)Application.Current!.Resources["ChipTextDark"];
 
 	public MainPage()
 	{
@@ -109,19 +121,18 @@ public partial class MainPage : ContentPage
 			_debaters.AddRange(CreateDefaultDebaters());
 		}
 
+		MigrateDebatersToSiliconFlow();
 		MigrateDebaterSides();
 	}
 
 	private static IEnumerable<DebaterConfig> CreateDefaultDebaters()
 	{
-		var qwen = ApiPresetCatalog.Find("dashscope");
-		var deepseek = ApiPresetCatalog.Find("deepseek");
-		var openai = ApiPresetCatalog.Find("openai");
+		var siliconFlow = ApiPresetCatalog.Find("siliconflow");
 		return
 		[
-			FromPreset(qwen, "qwen-plus", DebateSide.Pro, "重视产业实践和应用案例，擅长把抽象观点落到具体场景。"),
-			FromPreset(deepseek, "deepseek-chat", DebateSide.Con, "强调逻辑漏洞、成本、可靠性和长期外部性，发言尖锐但克制。"),
-			FromPreset(openai, "gpt-4.1-mini", DebateSide.Neutral, "负责补充关键追问、比较双方论证强弱，并推动辩论回到核心问题。")
+			FromPreset(siliconFlow, "Pro/deepseek-ai/DeepSeek-V3.2", DebateSide.Pro, "重视产业实践和应用案例，擅长把抽象观点落到具体场景。"),
+			FromPreset(siliconFlow, "deepseek-ai/DeepSeek-R1", DebateSide.Con, "强调逻辑漏洞、成本、可靠性和长期外部性，发言尖锐但克制。"),
+			FromPreset(siliconFlow, "Qwen/Qwen3-32B", DebateSide.Neutral, "负责补充关键追问、比较双方论证强弱，并推动辩论回到核心问题。")
 		];
 	}
 
@@ -160,6 +171,7 @@ public partial class MainPage : ContentPage
 		DebaterPicker.SelectedIndex = Math.Clamp(_settings.NextDebaterIndex, 0, Math.Max(0, _debaters.Count - 1));
 		_isLoading = false;
 		LoadSelectedDebater();
+		RefreshAiPoolCards();
 		RefreshRosterAssignments();
 		RefreshAll();
 	}
@@ -246,11 +258,6 @@ public partial class MainPage : ContentPage
 			_isBusy = false;
 			SetBusy(false, "准备就绪");
 			RefreshAll();
-			if (_settings.AutoContinue && _settings.CurrentRound < _settings.MaxRounds)
-			{
-				await Task.Delay(600);
-				await RunNextTurnAsync();
-			}
 		}
 	}
 
@@ -433,9 +440,32 @@ public partial class MainPage : ContentPage
 	{
 		_settings.AutoContinue = !_settings.AutoContinue;
 		RefreshStatus();
-		if (_settings.AutoContinue)
+		SaveState();
+		if (_settings.AutoContinue && !_isAutoLoopRunning)
 		{
-			await RunNextTurnAsync();
+			await RunAutoLoopAsync();
+		}
+	}
+
+	private async Task RunAutoLoopAsync()
+	{
+		_isAutoLoopRunning = true;
+		try
+		{
+			while (_settings.AutoContinue && _settings.CurrentRound < _settings.MaxRounds)
+			{
+				await RunNextTurnAsync();
+				if (_settings.AutoContinue && _settings.CurrentRound < _settings.MaxRounds)
+				{
+					await Task.Delay(600);
+				}
+			}
+		}
+		finally
+		{
+			_isAutoLoopRunning = false;
+			RefreshStatus();
+			SaveState();
 		}
 	}
 
@@ -519,7 +549,13 @@ public partial class MainPage : ContentPage
 			return;
 		}
 
-		foreach (var message in _messages)
+		var hiddenCount = Math.Max(0, _messages.Count - 80);
+		if (hiddenCount > 0)
+		{
+			MessageStack.Children.Add(CreateInfoCard("已折叠较早消息", $"为保持界面流畅，当前只显示最近 80 条消息。较早 {hiddenCount} 条仍会参与压缩记忆和导出。"));
+		}
+
+		foreach (var message in _messages.Skip(hiddenCount))
 		{
 			MessageStack.Children.Add(CreateMessageCard(message));
 		}
@@ -538,11 +574,9 @@ public partial class MainPage : ContentPage
 		{
 			Padding = 12,
 			StrokeThickness = isAi ? 1 : 0,
-			BackgroundColor = isHuman
-				? Color.FromArgb("#EEF4FA")
-				: message.Role == DebateRole.Tool
-					? Color.FromArgb("#F8FAFC")
-					: Color.FromArgb("#FFFFFF"),
+			BackgroundColor = GetThemedColor(
+				isHuman ? ControlBgColor : message.Role == DebateRole.Tool ? PanelAltColor : PanelBgColor,
+				isHuman ? ControlBgDarkColor : message.Role == DebateRole.Tool ? PanelAltDarkColor : PanelBgDarkColor),
 			Content = new VerticalStackLayout
 			{
 				Spacing = 6,
@@ -553,14 +587,9 @@ public partial class MainPage : ContentPage
 						Text = $"{message.Speaker}{(string.IsNullOrWhiteSpace(message.ModelName) ? string.Empty : $" · {message.ModelName}")}",
 						FontFamily = "OpenSansSemibold",
 						FontSize = 13,
-						TextColor = isAi ? Color.FromArgb("#2563EB") : Color.FromArgb("#0F172A")
+						TextColor = isAi ? GetThemedColor(PrimaryColor, ChipTextDarkColor) : GetThemedColor(TextStrongColor, TextStrongDarkColor)
 					},
-					new Label
-					{
-						Text = message.Content,
-						FontSize = 14,
-						LineHeight = 1.18
-					},
+					CreateMarkdownView(message.Content),
 					new Label
 					{
 						Text = $"{message.CreatedAt:HH:mm} {message.Phase}",
@@ -583,12 +612,210 @@ public partial class MainPage : ContentPage
 		return CreateInfoCard("等待插入的人工插话", text);
 	}
 
+	private View CreateMarkdownView(string markdown)
+	{
+		var stack = new VerticalStackLayout { Spacing = 6 };
+		var lines = (markdown ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+		var inCodeBlock = false;
+		var code = new StringBuilder();
+
+		foreach (var rawLine in lines)
+		{
+			var line = rawLine.TrimEnd();
+			if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
+			{
+				if (inCodeBlock)
+				{
+					stack.Children.Add(CreateCodeBlock(code.ToString().TrimEnd()));
+					code.Clear();
+					inCodeBlock = false;
+				}
+				else
+				{
+					inCodeBlock = true;
+				}
+
+				continue;
+			}
+
+			if (inCodeBlock)
+			{
+				code.AppendLine(line);
+				continue;
+			}
+
+			if (string.IsNullOrWhiteSpace(line))
+			{
+				stack.Children.Add(new BoxView { HeightRequest = 2, Opacity = 0 });
+				continue;
+			}
+
+			stack.Children.Add(CreateMarkdownLine(line));
+		}
+
+		if (inCodeBlock && code.Length > 0)
+		{
+			stack.Children.Add(CreateCodeBlock(code.ToString().TrimEnd()));
+		}
+
+		return stack;
+	}
+
+	private View CreateMarkdownLine(string line)
+	{
+		var trimmed = line.TrimStart();
+		var fontSize = 14d;
+		var prefix = string.Empty;
+		var content = line;
+		var semibold = false;
+
+		if (trimmed.StartsWith("### ", StringComparison.Ordinal))
+		{
+			fontSize = 15;
+			content = trimmed[4..];
+			semibold = true;
+		}
+		else if (trimmed.StartsWith("## ", StringComparison.Ordinal))
+		{
+			fontSize = 16;
+			content = trimmed[3..];
+			semibold = true;
+		}
+		else if (trimmed.StartsWith("# ", StringComparison.Ordinal))
+		{
+			fontSize = 17;
+			content = trimmed[2..];
+			semibold = true;
+		}
+		else if (trimmed.StartsWith("> ", StringComparison.Ordinal))
+		{
+			prefix = "引用：";
+			content = trimmed[2..];
+		}
+		else if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
+		{
+			prefix = "• ";
+			content = trimmed[2..];
+		}
+		else
+		{
+			var dot = trimmed.IndexOf(". ", StringComparison.Ordinal);
+			if (dot > 0 && dot <= 3 && trimmed[..dot].All(char.IsDigit))
+			{
+				prefix = $"{trimmed[..(dot + 1)]} ";
+				content = trimmed[(dot + 2)..];
+			}
+		}
+
+		var label = new Label
+		{
+			FontSize = fontSize,
+			LineHeight = 1.18,
+			TextColor = GetThemedColor(TextStrongColor, TextStrongDarkColor),
+			FontFamily = semibold ? "OpenSansSemibold" : "OpenSansRegular",
+			FormattedText = ParseInlineMarkdown(prefix, content)
+		};
+		return label;
+	}
+
+	private View CreateCodeBlock(string code)
+	{
+		return new Border
+		{
+			Padding = 10,
+			StrokeThickness = 0,
+			BackgroundColor = GetThemedColor(ControlBgColor, ControlBgDarkColor),
+			Content = new Label
+			{
+				Text = code,
+				FontFamily = "monospace",
+				FontSize = 13,
+				LineHeight = 1.15,
+				TextColor = GetThemedColor(TextStrongColor, TextStrongDarkColor)
+			}
+		};
+	}
+
+	private FormattedString ParseInlineMarkdown(string prefix, string content)
+	{
+		var formatted = new FormattedString();
+		if (!string.IsNullOrEmpty(prefix))
+		{
+			formatted.Spans.Add(new Span { Text = prefix, FontFamily = "OpenSansSemibold" });
+		}
+
+		var i = 0;
+		while (i < content.Length)
+		{
+			if (TryReadInlineToken(content, i, "**", out var bold, out var boldNext))
+			{
+				formatted.Spans.Add(new Span { Text = bold, FontFamily = "OpenSansSemibold" });
+				i = boldNext;
+			}
+			else if (TryReadInlineToken(content, i, "`", out var code, out var codeNext))
+			{
+				formatted.Spans.Add(new Span
+				{
+					Text = code,
+					FontFamily = "monospace",
+					BackgroundColor = GetThemedColor(ControlBgColor, ControlBgDarkColor)
+				});
+				i = codeNext;
+			}
+			else if (TryReadInlineToken(content, i, "*", out var italic, out var italicNext))
+			{
+				formatted.Spans.Add(new Span { Text = italic, FontAttributes = FontAttributes.Italic });
+				i = italicNext;
+			}
+			else
+			{
+				var next = FindNextMarkdownToken(content, i);
+				formatted.Spans.Add(new Span { Text = content[i..next] });
+				i = next;
+			}
+		}
+
+		return formatted;
+	}
+
+	private static bool TryReadInlineToken(string text, int start, string marker, out string value, out int next)
+	{
+		value = string.Empty;
+		next = start;
+		if (!text.AsSpan(start).StartsWith(marker, StringComparison.Ordinal))
+		{
+			return false;
+		}
+
+		var contentStart = start + marker.Length;
+		var end = text.IndexOf(marker, contentStart, StringComparison.Ordinal);
+		if (end < 0)
+		{
+			return false;
+		}
+
+		value = text[contentStart..end];
+		next = end + marker.Length;
+		return true;
+	}
+
+	private static int FindNextMarkdownToken(string text, int start)
+	{
+		var indexes = new[]
+		{
+			text.IndexOf("**", start, StringComparison.Ordinal),
+			text.IndexOf('`', start),
+			text.IndexOf('*', start)
+		}.Where(index => index >= 0);
+		return indexes.Any() ? indexes.Min() : text.Length;
+	}
+
 	private View CreateInfoCard(string title, string body)
 	{
 		return new Border
 		{
 			Padding = 14,
-			BackgroundColor = Color.FromArgb("#F8FAFC"),
+			BackgroundColor = GetThemedColor(PanelAltColor, PanelAltDarkColor),
 			StrokeThickness = 0,
 			Content = new VerticalStackLayout
 			{
@@ -600,6 +827,11 @@ public partial class MainPage : ContentPage
 				}
 			}
 		};
+	}
+
+	private Color GetThemedColor(Color light, Color dark)
+	{
+		return Application.Current?.RequestedTheme == AppTheme.Dark ? dark : light;
 	}
 
 	private void RefreshAttachmentList()
@@ -676,10 +908,12 @@ public partial class MainPage : ContentPage
 		var debater = CurrentDebater;
 		if (debater is null)
 		{
+			CurrentAiLabel.Text = "正在编辑：未选择";
 			return;
 		}
 
 		_isLoading = true;
+		CurrentAiLabel.Text = $"正在编辑：{GetDebaterDisplayName(debater)}";
 		DebaterNameEntry.Text = debater.Name;
 		DebaterPersonaEditor.Text = debater.Persona;
 		BaseUrlEntry.Text = debater.BaseUrl;
@@ -705,15 +939,13 @@ public partial class MainPage : ContentPage
 		var preset = ApiPresetCatalog.All[ProviderPicker.SelectedIndex];
 		debater.PresetId = preset.Id;
 		debater.ProviderKind = preset.Kind;
-		if (!preset.IsManual)
-		{
-			debater.BaseUrl = preset.BaseUrl;
-			debater.Model = preset.DefaultModel;
-			debater.Name = preset.DefaultModel;
-		}
+		debater.BaseUrl = preset.BaseUrl;
+		debater.Model = preset.DefaultModel;
+		debater.Name = preset.DefaultModel;
 
 		LoadSelectedDebater();
 		RefreshDebaterPickerNames();
+		RefreshAiPoolCards();
 		RefreshRosterAssignments();
 		SaveState();
 	}
@@ -789,13 +1021,29 @@ public partial class MainPage : ContentPage
 			return;
 		}
 
+		var previousName = GetAiPoolName(debater);
+		var previousModel = debater.Model;
 		debater.Name = string.IsNullOrWhiteSpace(DebaterNameEntry.Text) ? ModelEntry.Text?.Trim() ?? "未命名模型" : DebaterNameEntry.Text.Trim();
 		debater.Persona = DebaterPersonaEditor.Text?.Trim() ?? string.Empty;
 		debater.BaseUrl = BaseUrlEntry.Text?.Trim() ?? string.Empty;
 		debater.Model = ModelEntry.Text?.Trim() ?? string.Empty;
 		debater.ApiKey = ApiKeyEntry.Text?.Trim() ?? string.Empty;
-		RefreshDebaterPickerNames();
-		RefreshRosterAssignments();
+
+		if (!ReferenceEquals(sender, ApiKeyEntry))
+		{
+			if (!previousModel.Equals(debater.Model, StringComparison.OrdinalIgnoreCase))
+			{
+				RefreshModelPicker(ApiPresetCatalog.Find(debater.PresetId), debater.Model);
+			}
+
+			if (!previousName.Equals(GetAiPoolName(debater), StringComparison.Ordinal))
+			{
+				RefreshDebaterPickerNames();
+				RefreshAiPoolCards();
+				RefreshRosterAssignments();
+			}
+		}
+
 		SaveState();
 	}
 
@@ -813,11 +1061,10 @@ public partial class MainPage : ContentPage
 
 	private void OnAddAiClicked(object? sender, EventArgs e)
 	{
-		var preset = ApiPresetCatalog.Find("deepseek");
+		var preset = ApiPresetCatalog.Find("siliconflow");
 		_debaters.Add(FromPreset(preset, preset.DefaultModel, DebateSide.Neutral, string.Empty));
 		RefreshDebaterPickerNames();
-		DebaterPicker.SelectedIndex = _debaters.Count - 1;
-		LoadSelectedDebater();
+		SelectDebater(_debaters.Count - 1);
 		RefreshRosterAssignments();
 		RefreshStatus();
 		SaveState();
@@ -909,7 +1156,7 @@ public partial class MainPage : ContentPage
 
 	private void OnSaveClicked(object? sender, EventArgs e)
 	{
-		SaveState();
+		SaveStateNow();
 		AddLog("配置已保存。");
 	}
 
@@ -922,6 +1169,133 @@ public partial class MainPage : ContentPage
 			DebaterPicker.Items.Add(GetDebaterDisplayName(debater));
 		}
 		DebaterPicker.SelectedIndex = Math.Clamp(selected, 0, Math.Max(0, _debaters.Count - 1));
+		RefreshAiPoolCards();
+	}
+
+	private void SelectDebater(int index)
+	{
+		if (_debaters.Count == 0)
+		{
+			return;
+		}
+
+		_isLoading = true;
+		DebaterPicker.SelectedIndex = Math.Clamp(index, 0, _debaters.Count - 1);
+		_isLoading = false;
+		LoadSelectedDebater();
+		RefreshAiPoolCards();
+	}
+
+	private void RefreshAiPoolCards()
+	{
+		AiPoolStack.Children.Clear();
+		if (_debaters.Count == 0)
+		{
+			AiPoolStack.Children.Add(CreateInfoCard("AI 池为空", "点击“新增 AI”添加硅基流动模型。"));
+			return;
+		}
+
+		for (var i = 0; i < _debaters.Count; i++)
+		{
+			AiPoolStack.Children.Add(CreateAiPoolCard(_debaters[i], i));
+		}
+	}
+
+	private View CreateAiPoolCard(DebaterConfig debater, int index)
+	{
+		var selected = index == DebaterPicker.SelectedIndex;
+		var border = new Border
+		{
+			Padding = 10,
+			StrokeThickness = selected ? 2 : 1,
+			Stroke = new SolidColorBrush(selected ? PrimaryColor : GetThemedColor(PanelAltColor, PanelAltDarkColor)),
+			BackgroundColor = GetThemedColor(PanelAltColor, PanelAltDarkColor)
+		};
+
+		var title = new Label
+		{
+			Text = GetDebaterDisplayName(debater),
+			FontFamily = "OpenSansSemibold",
+			FontSize = 13,
+			TextColor = GetThemedColor(TextStrongColor, TextStrongDarkColor)
+		};
+
+		var details = new Label
+		{
+			Text = $"硅基流动 · {debater.Model}\nKey：{(string.IsNullOrWhiteSpace(debater.ApiKey) ? "未填写" : "已填写")} · Base：{Preview(debater.BaseUrl, 42)}",
+			Style = CaptionStyle
+		};
+
+		var editButton = new Button
+		{
+			Text = "编辑",
+			Padding = new Thickness(12, 6),
+			MinimumHeightRequest = 34,
+			BackgroundColor = GetThemedColor(ControlBgColor, ControlBgDarkColor),
+			TextColor = GetThemedColor(TextStrongColor, TextStrongDarkColor)
+		};
+		editButton.Clicked += (_, _) => SelectDebater(index);
+
+		var deleteButton = new Button
+		{
+			Text = "删除",
+			Padding = new Thickness(12, 6),
+			MinimumHeightRequest = 34,
+			BackgroundColor = GetThemedColor(PanelBgColor, PanelBgDarkColor),
+			TextColor = (Color)Application.Current!.Resources["Danger"]
+		};
+		deleteButton.Clicked += async (_, _) => await DeleteDebaterAsync(index);
+
+		var buttonRow = new HorizontalStackLayout
+		{
+			Spacing = 8,
+			Children = { editButton, deleteButton }
+		};
+
+		border.Content = new VerticalStackLayout
+		{
+			Spacing = 8,
+			Children = { title, details, buttonRow }
+		};
+
+		var tap = new TapGestureRecognizer();
+		tap.Tapped += (_, _) => SelectDebater(index);
+		border.GestureRecognizers.Add(tap);
+		return border;
+	}
+
+	private async Task DeleteDebaterAsync(int index)
+	{
+		if (index < 0 || index >= _debaters.Count)
+		{
+			return;
+		}
+
+		if (_debaters.Count == 1)
+		{
+			await DisplayAlert("无法删除", "AI 池至少保留一个硅基流动配置。", "知道了");
+			return;
+		}
+
+		var name = GetDebaterDisplayName(_debaters[index]);
+		var ok = await DisplayAlert("删除 AI", $"确定删除 {name}？", "删除", "取消");
+		if (!ok)
+		{
+			return;
+		}
+
+		_debaters.RemoveAt(index);
+		if (_settings.NextDebaterIndex >= _debaters.Count)
+		{
+			_settings.NextDebaterIndex = 0;
+		}
+
+		RefreshDebaterPickerNames();
+		SelectDebater(Math.Min(index, _debaters.Count - 1));
+		RefreshRosterAssignments();
+		RefreshStatus();
+		SaveStateNow();
+		AddLog($"已删除 AI：{name}");
 	}
 
 	private void RefreshModelPicker(ApiProviderPreset preset, string currentModel, IReadOnlyList<string>? dynamicModels = null)
@@ -1107,6 +1481,26 @@ public partial class MainPage : ContentPage
 		}
 	}
 
+	private void MigrateDebatersToSiliconFlow()
+	{
+		var preset = ApiPresetCatalog.Find("siliconflow");
+		foreach (var debater in _debaters)
+		{
+			debater.PresetId = preset.Id;
+			debater.ProviderKind = preset.Kind;
+			debater.BaseUrl = preset.BaseUrl;
+			if (string.IsNullOrWhiteSpace(debater.Model))
+			{
+				debater.Model = preset.DefaultModel;
+			}
+
+			if (string.IsNullOrWhiteSpace(debater.Name))
+			{
+				debater.Name = debater.Model;
+			}
+		}
+	}
+
 	private static string GetDebaterDisplayName(DebaterConfig debater)
 	{
 		var model = string.IsNullOrWhiteSpace(debater.Model) ? "未设置模型" : debater.Model;
@@ -1138,13 +1532,79 @@ public partial class MainPage : ContentPage
 
 	private void SaveState()
 	{
+		_saveCts?.Cancel();
+		_saveCts = new CancellationTokenSource();
+		var token = _saveCts.Token;
+		_ = SaveStateDebouncedAsync(token);
+	}
+
+	private async Task SaveStateDebouncedAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			await Task.Delay(300, cancellationToken);
+			var json = CreateStateJson();
+			if (cancellationToken.IsCancellationRequested)
+			{
+				return;
+			}
+
+			Preferences.Default.Set(SettingsKey, json);
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception ex)
+		{
+			AddLog($"保存配置失败：{ex.Message}");
+		}
+	}
+
+	private void SaveStateNow()
+	{
+		_saveCts?.Cancel();
+		Preferences.Default.Set(SettingsKey, CreateStateJson());
+	}
+
+	private string CreateStateJson()
+	{
 		var state = new PersistedState
 		{
 			Settings = _settings,
-			Debaters = _debaters,
-			Attachments = _attachments
+			Debaters = _debaters.Select(CloneDebater).ToList(),
+			Attachments = _attachments.Select(CloneAttachment).ToList()
 		};
-		Preferences.Default.Set(SettingsKey, JsonSerializer.Serialize(state, _jsonOptions));
+		return JsonSerializer.Serialize(state, _jsonOptions);
+	}
+
+	private static DebaterConfig CloneDebater(DebaterConfig source)
+	{
+		return new DebaterConfig
+		{
+			Name = source.Name,
+			Position = source.Position,
+			Persona = source.Persona,
+			Side = source.Side,
+			PresetId = source.PresetId,
+			ProviderKind = source.ProviderKind,
+			BaseUrl = source.BaseUrl,
+			ApiKey = source.ApiKey,
+			Model = source.Model,
+			Temperature = source.Temperature,
+			MaxTokens = source.MaxTokens,
+			Enabled = source.Enabled
+		};
+	}
+
+	private static AttachmentContext CloneAttachment(AttachmentContext source)
+	{
+		return new AttachmentContext
+		{
+			FileName = source.FileName,
+			Kind = source.Kind,
+			Content = source.Content,
+			CreatedAt = source.CreatedAt
+		};
 	}
 
 	private static void CopySettings(DebateSettings source, DebateSettings target)

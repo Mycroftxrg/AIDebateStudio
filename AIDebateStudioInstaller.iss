@@ -1,5 +1,5 @@
 #define MyAppName "AI 辩论工作室"
-#define MyAppVersion "1.2"
+#define MyAppVersion "1.2.1"
 #define MyAppPublisher "Mycroftxrg"
 #define MyAppExeName "AIDebateStudio.exe"
 #define SourceDir "bin\Release\net10.0-windows10.0.19041.0\win-x64\publish"
@@ -13,7 +13,7 @@ DefaultDirName={autopf}\AIDebateStudio
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=artifacts\windows
-OutputBaseFilename=AIDebateStudio-1.2-windows-x64-setup
+OutputBaseFilename=AIDebateStudio-1.2.1-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
